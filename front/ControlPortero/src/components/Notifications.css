@@ -1,0 +1,14 @@
+.toast-warning {
+    background-color: yellow;
+  }
+  
+  .toast-emergency {
+    background-color: red;
+    color: white;
+  }
+  
+  .toast-info {
+    background-color: blue;
+    color: white;
+  }
+  
