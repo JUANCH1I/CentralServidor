@@ -1,8 +1,8 @@
 import React from 'react';
 
 interface EmergencyBannerProps {
-  message: string;
-  onClose: () => void;
+  message: string | null;
+    onClose: () => void;
 }
 
 const EmergencyBanner: React.FC<EmergencyBannerProps> = ({ message, onClose }) => {

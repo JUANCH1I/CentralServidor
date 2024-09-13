@@ -112,9 +112,6 @@ export default function Notifications() {
 
   return (
     <Card className="w-full h-full overflow-hidden">
-      <CardHeader>
-        <CardTitle>Notificaciones</CardTitle>
-      </CardHeader>
       <CardContent className="space-y-4 overflow-auto max-h-[calc(100vh-200px)]">
         <ToastContainer />
         {loading && (

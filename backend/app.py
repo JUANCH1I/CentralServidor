@@ -1,19 +1,108 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import bcrypt
 import json
 import os
 import requests
 import uuid
 import time
+import logging
+import psycopg2
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
 CORS(app)
+
+logging.basicConfig(
+    filename='system_log.log',  # Nombre del archivo de log
+    level=logging.INFO,         # Nivel de log (puedes usar DEBUG para más detalles)
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Formato de cada línea del log
+)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)  # Esto evita que los logs de Flask (werkzeug) se registren.
+
+
+
+app.config['JWT_SECRET_KEY'] = '8afa8ee4-9f4d-4b72-97f2-e535348ad44a'  # Cambia esto a una clave secreta fuerte
+jwt = JWTManager(app)
 
 VISITORS_FILE = 'visitors.json'
 NOTIFICATIONS_FILE = 'notifications.json'
 CAMERAS_FILE = 'cameras.json'
 UPLOAD_FOLDER = 'uploads'
 
+users = [
+    {"id": 1, "username": "admin", "password": bcrypt.hashpw("password123".encode('utf-8'), bcrypt.gensalt())}
+]
+
+# Conectar a la base de datos
+def get_db_connection():
+    conn = psycopg2.connect(
+        host="localhost",
+        port="5430",
+        database="postgres",  # Usa el nombre de la base de datos que hayas creado
+        user="postgres",  # O el usuario que hayas configurado
+        password=""  # Coloca aquí la contraseña correcta
+    )
+    return conn
+
+# Función para guardar logs en la base de datos
+def save_log_to_db(timestamp, log_level, usuario, accion):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO logs (timestamp, log_level, usuario, accion)
+        VALUES (%s, %s, %s, %s)
+    """, (timestamp, log_level, usuario, accion))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+# Leer el archivo de logs y subir a la base de datos
+def process_logs_from_file():
+    try:
+        with open('system_log.log', 'r') as log_file:
+            logs = log_file.readlines()
+        
+        conn = get_db_connection()  # Obtener la conexión a la base de datos
+        cursor = conn.cursor()
+
+        for log in logs:
+            # Parsear el log para obtener los campos
+            log_parts = log.split(' - ')
+            if len(log_parts) < 4:
+                continue  # Ignorar líneas mal formadas
+
+            timestamp = log_parts[0].replace(',', '.')  # Reemplazar la coma por un punto en la fracción de segundo
+            log_level = log_parts[1].strip()
+            usuario = log_parts[2].strip()
+            accion = log_parts[3].strip()
+
+            # Insertar en la base de datos
+            query = """
+                INSERT INTO logs (timestamp, log_level, usuario, accion)
+                VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(query, (timestamp, log_level, usuario, accion))
+
+        conn.commit()  # Confirmar la transacción
+        cursor.close()
+        conn.close()
+
+        # Limpiar el archivo de logs después de procesarlo
+        with open('system_log.log', 'w') as log_file:
+            log_file.write('')
+
+        logging.info('Logs procesados y subidos a la base de datos correctamente.')
+
+    except Exception as e:
+        logging.error(f"Error al procesar el archivo de logs: {str(e)}")
+
+
+        # Programar la tarea para que se ejecute cada cierto tiempo
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=process_logs_from_file, trigger="interval", minutes=60)  # Cada 60 minutos
+scheduler.start()
 
 
 def append_to_json_file(file_path, data):
@@ -35,7 +124,21 @@ def append_to_json_file(file_path, data):
     except Exception as e:
         print(f"Error al procesar el archivo JSON: {e}")
 
+# Ruta para login
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
 
+    user = next((u for u in users if u['username'] == username), None)
+    if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
+        access_token = create_access_token(identity=user['id'])
+        logging.info(f"Usuario {username} ha iniciado sesión correctamente.")
+        return jsonify({"token": access_token}), 200
+    else:
+        logging.warning(f"Intento fallido de inicio de sesión para el usuario {username}.")
+        return jsonify({"msg": "Nombre de usuario o contraseña incorrectos"}), 401
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
@@ -50,17 +153,16 @@ def control_relay():
         relay = data.get('relay')
         state = data.get('state')
 
-        print(f"Datos recibidos: ip={ip}, relay={relay}, state={state}")
-
+        # Validación de datos
         if not ip or relay is None or state is None:
-            return jsonify({'error': 'Faltan parámetros'}), 400
+            return jsonify({'error': 'Faltan parametros'}), 400
+
+        # Log de solicitud del usuario para controlar el relé
 
         try:
-            response = requests.post(f'http://{ip}:3000/control-relay', json={
-                'relay': relay,
-                'state': state
-            })
-            print(f"Respuesta del servidor de relés: {response.status_code} {response.text}")
+            # Enviar la solicitud al servidor de relés
+            response = requests.post(f'http://{ip}:3000/control-relay', json={'relay': relay, 'state': state})
+            logging.info(f"Respuesta del servidor de relés: {response.status_code} {response.text}")
             response.raise_for_status()
         except requests.RequestException as e:
             return jsonify({'error': 'Error al enviar solicitud al servidor de relés', 'details': str(e)}), 500
@@ -69,6 +171,29 @@ def control_relay():
 
     except Exception as e:
         return jsonify({'error': 'Error interno del servidor', 'details': str(e)}), 500
+
+
+@app.route('/logs', methods=['POST'])
+@jwt_required()
+def save_log():
+    try:
+        data = request.json
+        observation = data.get('observation')
+        user_id = get_jwt_identity()
+
+        if not observation:
+            logging.warning(f"Usuario {user_id} intento guardar una observación vacía.")
+            return jsonify({'error': 'La observación está vacía'}), 400
+
+        logging.info(f"Usuario {user_id} registró la observación: {observation}")
+        save_log_to_db(time.strftime('%Y-%m-%d %H:%M:%S'), 'INFO', user_id, f"Registró la observación: {observation}")
+
+        return jsonify({"status": "success"}), 200
+
+    except Exception as e:
+        logging.error(f"Error al guardar el log: {str(e)}")
+        return jsonify({'error': f"Error al guardar el log: {str(e)}"}), 500
+
 
 
 @app.route('/notify', methods=['POST'])
@@ -93,13 +218,16 @@ def notify():
         "alert_type": data.get('alert_type', 'info')
     }
 
-    # Llamar a la función para agregar la nueva notificación al archivo JSON
     append_to_json_file(NOTIFICATIONS_FILE, new_notification)
+
 
     return jsonify({"status": "success", "id": visitor_id})
 
 
+
+# Ruta protegida (necesita autenticación)
 @app.route('/cameras', methods=['GET'])
+@jwt_required()
 def get_cameras():
     try:
         with open(CAMERAS_FILE, 'r') as file:

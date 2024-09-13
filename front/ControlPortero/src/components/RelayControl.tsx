@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Power, PowerOff } from "lucide-react"
+import { useNavigate } from 'react-router-dom';  // Asegúrate de importar esto
 
 const API_URL = 'http://192.168.10.23:5000/control-relay'
 
@@ -18,31 +19,59 @@ interface RelayState {
 }
 
 export default function RelayControl({ ip }: RelayControlProps) {
+  const navigate = useNavigate();  // Hook para redirigir
   const [relays, setRelays] = useState<RelayState[]>([
     { id: 0, name: 'Relé 1', state: true },
-    { id: 1, name: 'Relé 2', state: false },
+    { id: 1, name: 'Relé 2', state: true },
   ])
   const [status, setStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const controlRelay = useCallback(async (relay: number, state: number) => {
-    setLoading(true)
-    setStatus('Procesando...')
+    const token = localStorage.getItem('token'); // Obtener el token JWT
+
+    if (!token) {
+      setStatus('Error: No autenticado');
+      navigate('/login');  // Redirigir al login si no hay token
+      return;
+    }
+
+    setLoading(true);
+    setStatus('Procesando...');
+    
     try {
-      await axios.post(API_URL, { ip, relay, state })
+      await axios.post(API_URL, 
+        { ip, relay, state },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`  // Enviar el token JWT en los encabezados
+          }
+        }
+      );
       setRelays(prevRelays => 
         prevRelays.map(r => 
           r.id === relay ? { ...r, state: state === 1 } : r
         )
-      )
-      setStatus(`Relé ${relay + 1}: ${state === 1 ? 'Apagado' : 'Encendido'}`)
-    } catch (error) {
-      console.error('Error al controlar el relé:', error)
-      setStatus(`Error: ${axios.isAxiosError(error) && error.response?.data?.error ? error.response.data.error : 'Desconocido'}`)
+      );
+      setStatus(`Relé ${relay + 1}: ${state === 1 ? 'Apagado' : 'Encendido'}`);
+    } catch (error: unknown) {  // Cambiado a "unknown" para manejar el error de TS
+      if (axios.isAxiosError(error)) {
+        console.error('Error al controlar el relé:', error);
+        setStatus(`Error: ${error.response?.data?.error ?? 'Desconocido'}`);
+        
+        if (error.response?.status === 401) {
+          console.log('Token no válido o expirado');
+          localStorage.removeItem('token');  // Limpiar el token
+          navigate('/login');  // Redirigir al login
+        }
+      } else {
+        console.error('Error desconocido:', error);
+        setStatus('Error: Desconocido');
+      }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [ip])
+  }, [ip, navigate]);
 
   return (
     <Card className="w-full max-w-md mx-auto">
