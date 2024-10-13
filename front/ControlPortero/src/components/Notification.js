@@ -12,7 +12,7 @@ function Notification({ data }) {
       {/* Esto mostrará un mensaje alternativo si `message` es undefined */}
       {image ? (
         <img
-          src={`http://192.168.10.23:5000/uploads/${image}`}
+          src={`http://localhost:5000/uploads/${image}`}
           alt='Notification'
           style={{
             width: '100%',

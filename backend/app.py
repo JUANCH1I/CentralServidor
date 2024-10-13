@@ -11,7 +11,7 @@ import logging
 import psycopg2
 from apscheduler.schedulers.background import BackgroundScheduler
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='public', static_url_path='/C:/Users/fio/Desktop/Desarrollo/CentralServidor/backend/public')
 CORS(app)
 
 logging.basicConfig(
@@ -144,6 +144,10 @@ def login():
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
+@app.route('/')
+def serve_frontend():
+    return app.send_static_file('index.html')
+
 
 @app.route('/control-relay', methods=['POST'])
 def control_relay():
@@ -264,4 +268,6 @@ def get_notifications():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', threaded=True)
+    print("Servidor corriendo en http://0.0.0.0:5000")
+    app.run(debug=True, host='localhost', port='5000', threaded=True)
+

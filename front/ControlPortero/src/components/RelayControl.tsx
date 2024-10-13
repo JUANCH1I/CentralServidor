@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Power, PowerOff } from "lucide-react"
 import { useNavigate } from 'react-router-dom';  // Asegúrate de importar esto
 
-const API_URL = 'http://192.168.10.23:5000/control-relay'
+const API_URL = 'http://localhost:5000/control-relay'
 
 interface RelayControlProps {
   ip: string

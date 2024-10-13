@@ -50,7 +50,7 @@ export default function App() {
   }, [emergency])
 
   useEffect(() => {
-    const eventSource = new EventSource('http://192.168.10.23:5000/notifications')
+    const eventSource = new EventSource('http://localhost:5000/notifications')
 
     eventSource.onmessage = (event) => {
       const notification = JSON.parse(event.data)
@@ -69,7 +69,7 @@ export default function App() {
   }, [])
 
   const cameras: Camera[] = [
-    { ip: '192.168.191.190', name: 'Camera 1', id: 1 },
+    { ip: '192.168.10.13', name: 'Camera 1', id: 1 },
     { videoUrl: 'http://192.168.191.209:5000/video_feed', name: 'Camera 2', id: 2 },
   ]
 
@@ -79,7 +79,7 @@ export default function App() {
   }
 
   if (!isAuthenticated) {
-    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />
+    return <Login />
   }
 
   return (

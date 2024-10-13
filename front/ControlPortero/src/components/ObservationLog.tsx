@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-const LOGS_URL = 'http://192.168.10.23:5000/logs'; // URL del endpoint para guardar logs
+const LOGS_URL = 'http://localhost:5000/logs'; // URL del endpoint para guardar logs
 
 export default function ObservationLog() {
   const [observation, setObservation] = useState<string>('');  // Campo de entrada
@@ -18,16 +18,23 @@ export default function ObservationLog() {
       setStatus('Error: No autenticado');
       return;
     }
-
+  
     if (!observation.trim()) {
       setStatus('Error: La observación está vacía.');
       return;
     }
-
+  
     setLoading(true);
     try {
+      // Asegúrate de que el objeto se ajusta al esquema de logs que el servidor espera
+      const logData = {
+        level: "INFO",  // Puedes ajustar esto según sea necesario
+        message: observation,
+        timestamp: new Date().toISOString(),  // Añade la marca de tiempo
+      };
+  
       await axios.post(LOGS_URL, 
-        { observation }, 
+        logData, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setStatus('Observación guardada correctamente.');
@@ -39,6 +46,7 @@ export default function ObservationLog() {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="w-full max-w-md mx-auto mt-4">

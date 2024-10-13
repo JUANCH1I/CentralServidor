@@ -1,3 +1,4 @@
+// src/components/Notifications.tsx
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -6,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import './Notifications.css';
 
-const API_URL = 'http://192.168.10.23:5000';
+const API_URL = 'http://localhost:5000';
 
 interface Notification {
   id: string;
@@ -84,7 +85,18 @@ export default function Notifications() {
   }, []);
 
   useEffect(() => {
-    const eventSource = new EventSource(`${API_URL}/notifications`);
+    const token = localStorage.getItem('token');
+    console.log('Token obtenido:', token); // Añade este log
+    if (!token) {
+      setError('No se encontró el token de autenticación.');
+      setLoading(false);
+      return;
+    }
+
+    // Incluir el token en la URL como query parameter
+    const eventSource = new EventSource(`${API_URL}/notifications?token=${token}`);
+    console.log('EventSource URL:', `${API_URL}/notifications?token=${token}`); // Añade este log
+
 
     eventSource.onmessage = (event) => {
       try {
@@ -99,6 +111,7 @@ export default function Notifications() {
       console.error('Error con SSE:', err);
       setError('No se pudieron cargar las notificaciones.');
       setLoading(false);
+      eventSource.close();
     };
 
     eventSource.onopen = () => {

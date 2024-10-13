@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Control de Sistema</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Control de Sistema</h1>
+      <section id="camera-detail-section" class="card hidden">
+        <button id="back-to-grid" class="back-button">
+          &larr; Volver a la lista de cámaras
+        </button>
+        <h2 id="camera-name"></h2>
+        <div id="camera-feed"></div>
+        <div id="relay-control">
+          <h3>Control de Relés</h3>
+          <form id="relay-form">
+            <input type="hidden" id="relay-ip" />
+            <input
+              type="number"
+              id="relay-number"
+              placeholder="Número de relé"
+              required
+            />
+            <select id="relay-state" required>
+              <option value="on">Encender</option>
+              <option value="off">Apagar</option>
+            </select>
+            <button type="submit">Controlar Relé</button>
+          </form>
+          <div id="relay-message" class="message"></div>
+        </div>
+      </section>
+
+      <section id="login-section" class="card">
+        <h2>Iniciar Sesión</h2>
+        <form id="login-form">
+          <input type="text" id="username" placeholder="Usuario" required />
+          <input
+            type="password"
+            id="password"
+            placeholder="Contraseña"
+            required
+          />
+          <button type="submit">Iniciar Sesión</button>
+        </form>
+        <div id="login-message" class="message"></div>
+      </section>
+
+      <div class="main-content">
+        <section id="camera-grid-section" class="card hidden">
+          <h2>Cámaras</h2>
+          <div id="camera-grid" class="camera-grid"></div>
+        </section>
+
+        <section id="notifications-section" class="card hidden">
+          <h2>Notificaciones</h2>
+          <div id="notifications-list"></div>
+        </section>
+      </div>
+    </div>
+
+    <div id="notification-modal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2 id="modal-title"></h2>
+        <p id="modal-time"></p>
+        <p id="modal-message"></p>
+        <p id="modal-location"></p>
+        <img id="modal-image" src="" alt="Notification Image" />
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
